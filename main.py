@@ -203,4 +203,5 @@ def main(page: ft.Page):
     load_punc_question()
 
 # Start application
-ft.app(target=main)
+#ft.app(target=main)
+ft.run(main)
