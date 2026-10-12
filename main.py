@@ -1,3 +1,4 @@
+import os
 import json
 import re
 import flet as ft
@@ -9,7 +10,11 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
     # Load questions data
-    with open("questions.json", "r", encoding="utf-8") as f:
+    # Locate questions.json in the same folder as main.py
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(base_dir, "questions.json")
+
+    with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     # -------------------------------------------------------------
