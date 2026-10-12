@@ -52,7 +52,7 @@ def main(page: ft.Page):
                 return lambda e: select_option(choice, prefix, suffix)
 
             options_row.controls.append(
-                ft.ElevatedButton(text=opt, on_click=make_click_handler(opt))
+                ft.Button(text=opt, on_click=make_click_handler(opt))
             )
         page.update()
 
@@ -85,8 +85,8 @@ def main(page: ft.Page):
         options_row,
         fib_feedback,
         ft.Row([
-            ft.ElevatedButton("檢查答案", on_click=check_fib_answer),
-            ft.ElevatedButton("下一題", on_click=next_fib_question)
+            ft.Button("檢查答案", on_click=check_fib_answer),
+            ft.Button("下一題", on_click=next_fib_question)
         ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
     ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
@@ -119,7 +119,7 @@ def main(page: ft.Page):
             def make_mark_handler(m):
                 return lambda e: select_mark(m)
             palette_row.controls.append(
-                ft.OutlinedButton(text=mark, on_click=make_mark_handler(mark))
+                ft.Button(text=mark, on_click=make_mark_handler(mark))
             )
 
         # Render sentence and slot buttons
@@ -134,7 +134,7 @@ def main(page: ft.Page):
                 def make_slot_handler(slot_i):
                     return lambda e: fill_slot(e.control, slot_i)
                 sentence_row.controls.append(
-                    ft.ElevatedButton(text="[   ]", on_click=make_slot_handler(i))
+                    ft.Button(text="[   ]", on_click=make_slot_handler(i))
                 )
         page.update()
 
@@ -176,8 +176,8 @@ def main(page: ft.Page):
         sentence_row,
         punc_feedback,
         ft.Row([
-            ft.ElevatedButton("檢查標點", on_click=check_punc_answer),
-            ft.ElevatedButton("下一題", on_click=next_punc_question)
+            ft.Button("檢查標點", on_click=check_punc_answer),
+            ft.Button("下一題", on_click=next_punc_question)
         ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
     ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
