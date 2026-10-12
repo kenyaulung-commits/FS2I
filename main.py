@@ -1,233 +1,201 @@
 import json
 import re
-from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.core.text import LabelBase
+import flet as ft
 
-class FillInBlankScreen(Screen):
-    def __init__(self, questions, **kwargs):
-        super().__init__(**kwargs)
-        self.questions = questions
-        self.current_idx = 0
-        self.selected_choice = ""
-        
-        self.layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
-        
-        # Header navigation
-        top_bar = BoxLayout(size_hint_y=0.1)
-        btn_switch = Button(text="切換至：標點符號練習", font_name="Roboto")
-        btn_switch.bind(on_release=lambda x: setattr(self.manager, 'current', 'punctuation'))
-        top_bar.add_widget(btn_switch)
-        self.layout.add_widget(top_bar)
-        
-        # Question display
-        self.question_label = Label(
-            text="", 
-            font_size='24sp', 
-            size_hint_y=0.3,
-            halign='center',
-            valign='middle'
-        )
-        self.question_label.bind(size=self.question_label.setter('text_size'))
-        self.layout.add_widget(self.question_label)
-        
-        # Options container
-        self.options_box = BoxLayout(orientation='horizontal', spacing=10, size_hint_y=0.2)
-        self.layout.add_widget(self.options_box)
-        
-        # Feedback label
-        self.feedback_label = Label(text="", font_size='20sp', size_hint_y=0.15)
-        self.layout.add_widget(self.feedback_label)
-        
-        # Action controls
-        ctrl_box = BoxLayout(spacing=10, size_hint_y=0.15)
-        self.btn_check = Button(text="檢查答案")
-        self.btn_check.bind(on_release=self.check_answer)
-        self.btn_next = Button(text="下一題")
-        self.btn_next.bind(on_release=self.next_question)
-        ctrl_box.add_widget(self.btn_check)
-        ctrl_box.add_widget(self.btn_next)
-        self.layout.add_widget(ctrl_box)
-        
-        self.add_widget(self.layout)
-        self.load_question()
+def main(page: ft.Page):
+    page.title = "中文學習 App"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.padding = 20
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
-    def parse_question(self, raw_text):
-        # Parses bracket choices like (地／得／的) or （地/得/的）
-        pattern = r'[（\(](.*?)[）\)]'
-        match = re.search(pattern, raw_text)
+    # Load questions data
+    with open("questions.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # -------------------------------------------------------------
+    # EXERCISE 1: Fill in the Blank (選詞填空)
+    # -------------------------------------------------------------
+    fib_idx = 0
+    fib_questions = data["fill_in_blank"]
+    selected_choice = ""
+
+    question_text = ft.Text(value="", size=22, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
+    options_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=10)
+    fib_feedback = ft.Text(value="", size=18)
+
+    def parse_fib_question(raw_text):
+        match = re.search(r'[（\(](.*?)[）\)]', raw_text)
         if match:
-            options_str = match.group(1)
-            options = re.split(r'[／/]', options_str)
+            options = re.split(r'[／/]', match.group(1))
             prefix = raw_text[:match.start()]
             suffix = raw_text[match.end():]
             return prefix, options, suffix
         return raw_text, [], ""
 
-    def load_question(self):
-        self.options_box.clear_widgets()
-        self.selected_choice = ""
-        self.feedback_label.text = ""
-        
-        if self.current_idx >= len(self.questions):
-            self.question_label.text = "測驗完成！"
+    def load_fib_question():
+        nonlocal selected_choice
+        selected_choice = ""
+        fib_feedback.value = ""
+        options_row.controls.clear()
+
+        if fib_idx >= len(fib_questions):
+            question_text.value = "測驗完成！"
+            page.update()
             return
 
-        q_data = self.questions[self.current_idx]
-        self.prefix, self.options, self.suffix = self.parse_question(q_data["text"])
-        self.update_sentence_display(" [ ___ ] ")
+        q = fib_questions[fib_idx]
+        prefix, options, suffix = parse_fib_question(q["text"])
+        question_text.value = f"{prefix} [ ___ ] {suffix}"
 
-        for opt in self.options:
-            btn = Button(text=opt, font_size='22sp')
-            btn.bind(on_release=self.select_option)
-            self.options_box.add_widget(btn)
+        for opt in options:
+            def make_click_handler(choice):
+                return lambda e: select_option(choice, prefix, suffix)
 
-    def select_option(self, instance):
-        self.selected_choice = instance.text
-        self.update_sentence_display(f" [ {self.selected_choice} ] ")
+            options_row.controls.append(
+                ft.ElevatedButton(text=opt, on_click=make_click_handler(opt))
+            )
+        page.update()
 
-    def update_sentence_display(self, fill_text):
-        self.question_label.text = f"{self.prefix}{fill_text}{self.suffix}"
+    def select_option(choice, prefix, suffix):
+        nonlocal selected_choice
+        selected_choice = choice
+        question_text.value = f"{prefix} [ {choice} ] {suffix}"
+        page.update()
 
-    def check_answer(self, instance):
-        if not self.selected_choice:
-            self.feedback_label.text = "請先選擇一個答案！"
-            return
-            
-        correct = self.questions[self.current_idx]["answer"]
-        if self.selected_choice == correct:
-            self.feedback_label.text = "答對了！非常棒！"
+    def check_fib_answer(e):
+        if not selected_choice:
+            fib_feedback.value = "請先選擇一個答案！"
+        elif selected_choice == fib_questions[fib_idx]["answer"]:
+            fib_feedback.value = "答對了！非常棒！"
         else:
-            self.feedback_label.text = f"再試一次！正確答案是：{correct}"
+            fib_feedback.value = f"再試一次！正確答案是：{fib_questions[fib_idx]['answer']}"
+        page.update()
 
-    def next_question(self, instance):
-        if self.current_idx < len(self.questions) - 1:
-            self.current_idx += 1
-            self.load_question()
+    def next_fib_question(e):
+        nonlocal fib_idx
+        if fib_idx < len(fib_questions) - 1:
+            fib_idx += 1
+            load_fib_question()
         else:
-            self.feedback_label.text = "已經是最後一題了！"
+            fib_feedback.value = "已經是最後一題了！"
+            page.update()
 
+    fib_view = ft.Column([
+        question_text,
+        options_row,
+        fib_feedback,
+        ft.Row([
+            ft.ElevatedButton("檢查答案", on_click=check_fib_answer),
+            ft.ElevatedButton("下一題", on_click=next_fib_question)
+        ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+    ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
-class PunctuationScreen(Screen):
-    def __init__(self, punctuation_data, **kwargs):
-        super().__init__(**kwargs)
-        self.marks = punctuation_data["available_marks"]
-        self.questions = punctuation_data["questions"]
-        self.current_idx = 0
-        self.active_mark = None
-        self.user_slots = []
-        
-        self.layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
-        
-        # Navigation bar
-        top_bar = BoxLayout(size_hint_y=0.1)
-        btn_switch = Button(text="切換至：選詞填空練習")
-        btn_switch.bind(on_release=lambda x: setattr(self.manager, 'current', 'fill_blank'))
-        top_bar.add_widget(btn_switch)
-        self.layout.add_widget(top_bar)
+    # -------------------------------------------------------------
+    # EXERCISE 2: Punctuation Marks (標點符號)
+    # -------------------------------------------------------------
+    punc_idx = 0
+    punc_data = data["punctuation"]
+    active_mark = None
+    user_slots = []
 
-        # Available punctuation palette (Reusable across questions)
-        palette_label = Label(text="選擇標點符號：", size_hint_y=0.08)
-        self.layout.add_widget(palette_label)
-        
-        self.palette_box = GridLayout(cols=4, spacing=5, size_hint_y=0.2)
-        for mark in self.marks:
-            btn = Button(text=mark, font_size='22sp')
-            btn.bind(on_release=self.select_mark)
-            self.palette_box.add_widget(btn)
-        self.layout.add_widget(self.palette_box)
+    palette_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=8)
+    sentence_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=5, wrap=True)
+    punc_feedback = ft.Text(value="", size=18)
 
-        # Sentence & Slots area
-        self.sentence_box = BoxLayout(orientation='horizontal', spacing=5, size_hint_y=0.25)
-        self.layout.add_widget(self.sentence_box)
+    def load_punc_question():
+        nonlocal active_mark, user_slots
+        active_mark = None
+        punc_feedback.value = ""
+        palette_row.controls.clear()
+        sentence_row.controls.clear()
 
-        # Feedback area
-        self.feedback_label = Label(text="", font_size='20sp', size_hint_y=0.15)
-        self.layout.add_widget(self.feedback_label)
-
-        # Action controls
-        ctrl_box = BoxLayout(spacing=10, size_hint_y=0.15)
-        btn_check = Button(text="檢查標點")
-        btn_check.bind(on_release=self.check_answer)
-        btn_next = Button(text="下一題")
-        btn_next.bind(on_release=self.next_question)
-        ctrl_box.add_widget(btn_check)
-        ctrl_box.add_widget(btn_next)
-        self.layout.add_widget(ctrl_box)
-
-        self.add_widget(self.layout)
-        self.load_question()
-
-    def select_mark(self, instance):
-        self.active_mark = instance.text
-        self.feedback_label.text = f"已選擇標點：『 {self.active_mark} 』，請點擊底下的空格填入"
-
-    def load_question(self):
-        self.sentence_box.clear_widgets()
-        self.feedback_label.text = ""
-        self.active_mark = None
-        
-        if self.current_idx >= len(self.questions):
-            self.feedback_label.text = "所有標點練習已完成！"
+        if punc_idx >= len(punc_data["questions"]):
+            punc_feedback.value = "所有標點練習已完成！"
+            page.update()
             return
 
-        q_data = self.questions[self.current_idx]
-        segments = re.split(r'[（\(][）\)]', q_data["text"])
-        
-        self.slot_buttons = []
-        self.user_slots = [""] * (len(segments) - 1)
+        # Render available symbols bar
+        for mark in punc_data["available_marks"]:
+            def make_mark_handler(m):
+                return lambda e: select_mark(m)
+            palette_row.controls.append(
+                ft.OutlinedButton(text=mark, on_click=make_mark_handler(mark))
+            )
+
+        # Render sentence and slot buttons
+        q_text = punc_data["questions"][punc_idx]["text"]
+        segments = re.split(r'[（\(][）\)]', q_text)
+        user_slots = [""] * (len(segments) - 1)
 
         for i, seg in enumerate(segments):
             if seg:
-                lbl = Label(text=seg, font_size='20sp', size_hint_x=None)
-                lbl.texture_update()
-                lbl.width = lbl.texture_size[0] + 10
-                self.sentence_box.add_widget(lbl)
-
+                sentence_row.controls.append(ft.Text(value=seg, size=20))
             if i < len(segments) - 1:
-                slot_btn = Button(text="[   ]", font_size='20sp', size_hint_x=None, width=70)
-                slot_btn.slot_index = i
-                slot_btn.bind(on_release=self.fill_slot)
-                self.slot_buttons.append(slot_btn)
-                self.sentence_box.add_widget(slot_btn)
+                def make_slot_handler(slot_i):
+                    return lambda e: fill_slot(e.control, slot_i)
+                sentence_row.controls.append(
+                    ft.ElevatedButton(text="[   ]", on_click=make_slot_handler(i))
+                )
+        page.update()
 
-    def fill_slot(self, instance):
-        if self.active_mark:
-            idx = instance.slot_index
-            self.user_slots[idx] = self.active_mark
-            instance.text = f"[ {self.active_mark} ]"
+    def select_mark(m):
+        nonlocal active_mark
+        active_mark = m
+        punc_feedback.value = f"已選擇標點：『 {active_mark} 』，請點擊底下的空格填入"
+        page.update()
+
+    def fill_slot(btn_control, idx):
+        if active_mark:
+            user_slots[idx] = active_mark
+            btn_control.text = f"[ {active_mark} ]"
         else:
-            self.feedback_label.text = "請先在上方點擊選擇一個標點符號！"
+            punc_feedback.value = "請先在上方點擊選擇一個標點符號！"
+        page.update()
 
-    def check_answer(self, instance):
-        expected = self.questions[self.current_idx]["answers"]
-        if self.user_slots == expected:
-            self.feedback_label.text = "全對了！標點符號用得很準確！"
+    def check_punc_answer(e):
+        expected = punc_data["questions"][punc_idx]["answers"]
+        if user_slots == expected:
+            punc_feedback.value = "全對了！標點符號用得很準確！"
         else:
-            self.feedback_label.text = f"填寫有誤。參考答案：{' '.join(expected)}"
+            punc_feedback.value = f"填寫有誤。參考答案：{' '.join(expected)}"
+        page.update()
 
-    def next_question(self, instance):
-        if self.current_idx < len(self.questions) - 1:
-            self.current_idx += 1
-            self.load_question()
+    def next_punc_question(e):
+        nonlocal punc_idx
+        if punc_idx < len(punc_data["questions"]) - 1:
+            punc_idx += 1
+            load_punc_question()
         else:
-            self.feedback_label.text = "已經是最後一題！"
+            punc_feedback.value = "已經是最後一題！"
+            page.update()
 
+    punc_view = ft.Column([
+        ft.Text("選擇標點符號：", size=16),
+        palette_row,
+        ft.Divider(),
+        sentence_row,
+        punc_feedback,
+        ft.Row([
+            ft.ElevatedButton("檢查標點", on_click=check_punc_answer),
+            ft.ElevatedButton("下一題", on_click=next_punc_question)
+        ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+    ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
-class ChineseLearningApp(App):
-    def build(self):
-        with open("questions.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
+    # -------------------------------------------------------------
+    # Navigation Tabs
+    # -------------------------------------------------------------
+    tabs = ft.Tabs(
+        selected_index=0,
+        tabs=[
+            ft.Tab(text="選詞填空", content=fib_view),
+            ft.Tab(text="標點符號", content=punc_view),
+        ],
+        expand=True
+    )
 
-        sm = ScreenManager()
-        sm.add_widget(FillInBlankScreen(data["fill_in_blank"], name='fill_blank'))
-        sm.add_widget(PunctuationScreen(data["punctuation"], name='punctuation'))
-        return sm
+    page.add(tabs)
+    load_fib_question()
+    load_punc_question()
 
-
-if __name__ == "__main__":
-    ChineseLearningApp().run()
+# Start application
+ft.app(target=main)
