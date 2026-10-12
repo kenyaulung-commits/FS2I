@@ -9,8 +9,7 @@ def main(page: ft.Page):
     page.padding = 20
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
-    # Load questions data
-    # Locate questions.json in the same folder as main.py
+    # Locate questions.json in the same directory as main.py
     base_dir = os.path.dirname(os.path.abspath(__file__))
     json_path = os.path.join(base_dir, "questions.json")
 
@@ -57,7 +56,7 @@ def main(page: ft.Page):
                 return lambda e: select_option(choice, prefix, suffix)
 
             options_row.controls.append(
-                ft.Button(text=opt, on_click=make_click_handler(opt))
+                ft.Button(content=ft.Text(opt, size=18), on_click=make_click_handler(opt))
             )
         page.update()
 
@@ -90,8 +89,8 @@ def main(page: ft.Page):
         options_row,
         fib_feedback,
         ft.Row([
-            ft.Button("檢查答案", on_click=check_fib_answer),
-            ft.Button("下一題", on_click=next_fib_question)
+            ft.Button(content=ft.Text("檢查答案"), on_click=check_fib_answer),
+            ft.Button(content=ft.Text("下一題"), on_click=next_fib_question)
         ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
     ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
@@ -119,15 +118,13 @@ def main(page: ft.Page):
             page.update()
             return
 
-        # Render available symbols bar
         for mark in punc_data["available_marks"]:
             def make_mark_handler(m):
                 return lambda e: select_mark(m)
             palette_row.controls.append(
-                ft.Button(text=mark, on_click=make_mark_handler(mark))
+                ft.Button(content=ft.Text(mark, size=18), on_click=make_mark_handler(mark))
             )
 
-        # Render sentence and slot buttons
         q_text = punc_data["questions"][punc_idx]["text"]
         segments = re.split(r'[（\(][）\)]', q_text)
         user_slots = [""] * (len(segments) - 1)
@@ -139,7 +136,7 @@ def main(page: ft.Page):
                 def make_slot_handler(slot_i):
                     return lambda e: fill_slot(e.control, slot_i)
                 sentence_row.controls.append(
-                    ft.Button(text="[   ]", on_click=make_slot_handler(i))
+                    ft.Button(content=ft.Text("[   ]", size=18), on_click=make_slot_handler(i))
                 )
         page.update()
 
@@ -152,7 +149,7 @@ def main(page: ft.Page):
     def fill_slot(btn_control, idx):
         if active_mark:
             user_slots[idx] = active_mark
-            btn_control.text = f"[ {active_mark} ]"
+            btn_control.content = ft.Text(f"[ {active_mark} ]", size=18)
         else:
             punc_feedback.value = "請先在上方點擊選擇一個標點符號！"
         page.update()
@@ -175,33 +172,43 @@ def main(page: ft.Page):
             page.update()
 
     punc_view = ft.Column([
-        ft.Text("選擇標點符號：", size=16),
+        ft.Text(value="選擇標點符號：", size=16),
         palette_row,
         ft.Divider(),
         sentence_row,
         punc_feedback,
         ft.Row([
-            ft.Button("檢查標點", on_click=check_punc_answer),
-            ft.Button("下一題", on_click=next_punc_question)
+            ft.Button(content=ft.Text("檢查標點"), on_click=check_punc_answer),
+            ft.Button(content=ft.Text("下一題"), on_click=next_punc_question)
         ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
     ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
     # -------------------------------------------------------------
-    # Navigation Tabs
+    # Navigation Container (Robust View Switcher)
     # -------------------------------------------------------------
-    tabs = ft.Tabs(
-        selected_index=0,
-        tabs=[
-            ft.Tab(text="選詞填空", content=fib_view),
-            ft.Tab(text="標點符號", content=punc_view),
-        ],
-        expand=True
+    view_container = ft.Container(content=fib_view)
+
+    def switch_to_fib(e):
+        view_container.content = fib_view
+        page.update()
+
+    def switch_to_punc(e):
+        view_container.content = punc_view
+        page.update()
+
+    nav_row = ft.Row([
+        ft.Button(content=ft.Text("選詞填空練習"), on_click=switch_to_fib),
+        ft.Button(content=ft.Text("標點符號練習"), on_click=switch_to_punc)
+    ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+
+    page.add(
+        nav_row,
+        ft.Divider(),
+        view_container
     )
 
-    page.add(tabs)
     load_fib_question()
     load_punc_question()
 
-# Start application
-#ft.app(target=main)
+# Entry point for Flet 1.0
 ft.run(main)
