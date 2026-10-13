@@ -278,7 +278,7 @@ def main(page: ft.Page):
         expand=True,
         # Correct Flet Container background image syntax
         image=ft.DecorationImage(
-            src="assets/bg.jpg",
+            src="bg.jpg",
             fit="cover"
         ) if os.path.exists(bg_image_path) else None
     )
