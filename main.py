@@ -13,35 +13,33 @@ GITHUB_RAW_URL = "https://raw.githubusercontent.com/kenyaulung-commits/FS2I/main
 def main(page: ft.Page):
     page.title = "FS2I 中文學習 App"
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.padding = 0  # Handled by container padding
+    page.padding = 0
 
-    # Local storage path
     base_dir = os.path.dirname(os.path.abspath(__file__))
     json_path = os.path.join(base_dir, "questions.json")
 
-    # Audio players
-    success_audio_path = os.path.join(base_dir, "assets", "success.mp3")
-    fail_audio_path = os.path.join(base_dir, "assets", "fail.mp3")
-
-    audio_success = ft.Audio(src=success_audio_path, autoplay=False)
-    audio_fail = ft.Audio(src=fail_audio_path, autoplay=False)
-    page.overlay.extend([audio_success, audio_fail])
-
-    # Status message for online sync
     status_text = ft.Text(value="", size=14, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
+
+    # -------------------------------------------------------------
+    # Audio Playback Helper for Flet 1.0
+    # -------------------------------------------------------------
+    def play_sound_and_wait(filename):
+        try:
+            page.run_js(f"new Audio('assets/{filename}').play();")
+        except Exception as e:
+            print(f"Audio error: {e}")
+        time.sleep(0.5)
 
     # -------------------------------------------------------------
     # Feature 4: Online Question Source Sync Logic
     # -------------------------------------------------------------
     def load_questions_data():
-        # Try downloading latest questions from GitHub
         try:
             req = urllib.request.Request(GITHUB_RAW_URL, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=4) as response:
                 if response.status == 200:
                     raw_json = response.read().decode("utf-8")
                     data = json.loads(raw_json)
-                    # Cache locally for offline use
                     with open(json_path, "w", encoding="utf-8") as f:
                         f.write(raw_json)
                     status_text.value = "已成功連線 GitHub 更新至最新題目！"
@@ -49,7 +47,6 @@ def main(page: ft.Page):
         except Exception:
             pass
 
-        # Offline Fallback
         if os.path.exists(json_path):
             with open(json_path, "r", encoding="utf-8") as f:
                 status_text.value = "離線模式：已載入本機預存題目。"
@@ -58,14 +55,6 @@ def main(page: ft.Page):
         return {"fill_in_blank": [], "punctuation": {"available_marks": [], "questions": []}}
 
     data = load_questions_data()
-
-    # Helper function to play sound with delay
-    def play_sound_and_wait(audio_obj):
-        try:
-            audio_obj.play()
-        except Exception:
-            pass
-        time.sleep(0.5)
 
     # -------------------------------------------------------------
     # EXERCISE 1: Fill in the Blank (選詞填空)
@@ -117,7 +106,6 @@ def main(page: ft.Page):
         question_text.value = f"{prefix} [ {choice} ] {suffix}"
         page.update()
 
-    # Feature 1: "下一題" validation and sound playback
     def next_fib_question(e):
         nonlocal fib_idx
         if not selected_choice:
@@ -131,7 +119,7 @@ def main(page: ft.Page):
             fib_feedback.value = "答對了！非常棒！"
             fib_feedback.color = ft.Colors.GREEN_400
             page.update()
-            play_sound_and_wait(audio_success)
+            play_sound_and_wait("success.mp3")
 
             if fib_idx < len(fib_questions) - 1:
                 fib_idx += 1
@@ -144,7 +132,7 @@ def main(page: ft.Page):
             fib_feedback.value = "答錯了！請再試一次！"
             fib_feedback.color = ft.Colors.RED_400
             page.update()
-            play_sound_and_wait(audio_fail)
+            play_sound_and_wait("fail.mp3")
 
     fib_view = ft.Column([
         question_text,
@@ -216,7 +204,6 @@ def main(page: ft.Page):
             punc_feedback.color = ft.Colors.RED_400
         page.update()
 
-    # Feature 1: "下一題" validation and sound playback
     def next_punc_question(e):
         nonlocal punc_idx
         p_questions = punc_data.get("questions", [])
@@ -226,7 +213,7 @@ def main(page: ft.Page):
             punc_feedback.value = "全對了！標點符號用得很準確！"
             punc_feedback.color = ft.Colors.GREEN_400
             page.update()
-            play_sound_and_wait(audio_success)
+            play_sound_and_wait("success.mp3")
 
             if punc_idx < len(p_questions) - 1:
                 punc_idx += 1
@@ -238,7 +225,7 @@ def main(page: ft.Page):
             punc_feedback.value = "填寫有誤，請再試一次！"
             punc_feedback.color = ft.Colors.RED_400
             page.update()
-            play_sound_and_wait(audio_fail)
+            play_sound_and_wait("fail.mp3")
 
     punc_view = ft.Column([
         ft.Text(value="選擇標點符號：", size=16),
@@ -267,9 +254,6 @@ def main(page: ft.Page):
         ft.Button(content=ft.Text("標點符號"), on_click=switch_to_punc)
     ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
 
-    # -------------------------------------------------------------
-    # Features 2 & 3: Background Wallpaper & Screen Downward Shift
-    # -------------------------------------------------------------
     bg_image_path = os.path.join(base_dir, "assets", "bg.jpg")
 
     main_wrapper = ft.Container(
@@ -279,11 +263,9 @@ def main(page: ft.Page):
             ft.Divider(),
             view_container
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-        # Feature 3: Screen moved down (top padding = 60)
         padding=ft.padding.only(top=60, left=20, right=20, bottom=20),
         expand=True,
-        # Feature 2: Background wallpaper
-        image_src=bg_image_path if os.path.exists(bg_image_path) else None,
+        image_src="assets/bg.jpg" if os.path.exists(bg_image_path) else None,
         image_fit=ft.ImageFit.COVER
     )
 
@@ -291,4 +273,5 @@ def main(page: ft.Page):
     load_fib_question()
     load_punc_question()
 
-ft.run(main)
+# Configure assets_dir so Flet serves files in the assets/ directory
+ft.run(main, assets_dir="assets")
