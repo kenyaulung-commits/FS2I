@@ -4,10 +4,8 @@ import re
 import time
 import urllib.request
 import flet as ft
+import flet_audio as fta  # Official Flet audio package
 
-# -------------------------------------------------------------
-# GitHub Raw URL for Remote Question Updates
-# -------------------------------------------------------------
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/kenyaulung-commits/FS2I/main/questions.json"
 
 def main(page: ft.Page):
@@ -21,16 +19,18 @@ def main(page: ft.Page):
     status_text = ft.Text(value="", size=14, color="white", weight="bold")
 
     # -------------------------------------------------------------
-    # Audio Playback Helper for Flet 1.0
+    # Audio Setup with flet_audio
     # -------------------------------------------------------------
-# Fixed line (points directly to root of assets_dir)
-    def play_sound_and_wait(filename):
+    audio_success = fta.Audio(src="success.mp3", autoplay=False)
+    audio_fail = fta.Audio(src="fail.mp3", autoplay=False)
+    page.overlay.extend([audio_success, audio_fail])
+
+    def play_sound_and_wait(audio_control):
         try:
-            page.run_js(f"new Audio('{filename}').play();")
+            audio_control.play()
         except Exception as e:
             print(f"Audio error: {e}")
         time.sleep(0.5)
-
 
     # -------------------------------------------------------------
     # Online Question Source Sync Logic
@@ -121,7 +121,7 @@ def main(page: ft.Page):
             fib_feedback.value = "答對了！非常棒！"
             fib_feedback.color = "green"
             page.update()
-            play_sound_and_wait("success.mp3")
+            play_sound_and_wait(audio_success)
 
             if fib_idx < len(fib_questions) - 1:
                 fib_idx += 1
@@ -134,7 +134,7 @@ def main(page: ft.Page):
             fib_feedback.value = "答錯了！請再試一次！"
             fib_feedback.color = "red"
             page.update()
-            play_sound_and_wait("fail.mp3")
+            play_sound_and_wait(audio_fail)
 
     fib_view = ft.Column([
         question_text,
@@ -215,7 +215,7 @@ def main(page: ft.Page):
             punc_feedback.value = "全對了！標點符號用得很準確！"
             punc_feedback.color = "green"
             page.update()
-            play_sound_and_wait("success.mp3")
+            play_sound_and_wait(audio_success)
 
             if punc_idx < len(p_questions) - 1:
                 punc_idx += 1
@@ -227,7 +227,7 @@ def main(page: ft.Page):
             punc_feedback.value = "填寫有誤，請再試一次！"
             punc_feedback.color = "red"
             page.update()
-            play_sound_and_wait("fail.mp3")
+            play_sound_and_wait(audio_fail)
 
     punc_view = ft.Column([
         ft.Text(value="選擇標點符號：", size=16),
@@ -267,13 +267,11 @@ def main(page: ft.Page):
         ], horizontal_alignment="center"),
         padding=ft.Padding(left=20, top=60, right=20, bottom=20),
         expand=True,
-        # Correct Flet Container background image syntax
         image=ft.DecorationImage(
             src="bg.jpg",
             fit="cover"
         ) if os.path.exists(bg_image_path) else None
     )
-
 
     page.add(main_wrapper)
     load_fib_question()
