@@ -30,6 +30,17 @@ def main(page: ft.Page):
             print(f"Audio error: {e}")
         time.sleep(0.5)
 
+
+
+# Fixed line (points directly to root of assets_dir)
+    def play_sound_and_wait(filename):
+        try:
+            page.run_js(f"new Audio('{filename}').play();")
+        except Exception as e:
+            print(f"Audio error: {e}")
+        time.sleep(0.5)
+
+
     # -------------------------------------------------------------
     # Online Question Source Sync Logic
     # -------------------------------------------------------------
