@@ -26,11 +26,12 @@ def main(page: ft.Page):
     page.overlay.extend([audio_success, audio_fail])
 
     def play_sound_and_wait(audio_control):
-        try:
-            audio_control.play()
-        except Exception as e:
-            print(f"Audio error: {e}")
-        time.sleep(0.5)
+    try:
+        # Schedule the async play method on Flet's event loop
+        page.run_task(audio_control.play)
+    except Exception as e:
+        print(f"Audio error: {e}")
+    time.sleep(0.5)
 
     # -------------------------------------------------------------
     # Online Question Source Sync Logic
