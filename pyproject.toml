@@ -1,0 +1,9 @@
+[project]
+name = "fs2i-chinese"
+version = "1.0.0"
+description = "FS2I Chinese Learning App"
+
+[tool.flet]
+product = "FS2I Chinese"
+org = "com.kenyaulung.fs2i"
+icon = "assets/icon.png"
