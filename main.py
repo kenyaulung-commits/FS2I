@@ -263,11 +263,12 @@ def main(page: ft.Page):
             ft.Divider(),
             view_container
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-        padding=ft.padding.only(top=60, left=20, right=20, bottom=20),
+        padding=ft.Padding(left=20, top=60, right=20, bottom=20),
         expand=True,
         image_src="assets/bg.jpg" if os.path.exists(bg_image_path) else None,
         image_fit=ft.ImageFit.COVER
     )
+
 
     page.add(main_wrapper)
     load_fib_question()
