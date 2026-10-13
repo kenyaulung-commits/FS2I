@@ -1,31 +1,82 @@
 import os
 import json
 import re
+import time
+import urllib.request
 import flet as ft
 
-def main(page: ft.Page):
-    page.title = "中文學習 App"
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.padding = 20
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+# -------------------------------------------------------------
+# GitHub Raw URL for Remote Question Updates
+# -------------------------------------------------------------
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/kenyaulung-commits/FS2I/main/questions.json"
 
-    # Locate questions.json in the same directory as main.py
+def main(page: ft.Page):
+    page.title = "FS2I 中文學習 App"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.padding = 0  # Handled by container padding
+
+    # Local storage path
     base_dir = os.path.dirname(os.path.abspath(__file__))
     json_path = os.path.join(base_dir, "questions.json")
 
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    # Audio players
+    success_audio_path = os.path.join(base_dir, "assets", "success.mp3")
+    fail_audio_path = os.path.join(base_dir, "assets", "fail.mp3")
+
+    audio_success = ft.Audio(src=success_audio_path, autoplay=False)
+    audio_fail = ft.Audio(src=fail_audio_path, autoplay=False)
+    page.overlay.extend([audio_success, audio_fail])
+
+    # Status message for online sync
+    status_text = ft.Text(value="", size=14, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
+
+    # -------------------------------------------------------------
+    # Feature 4: Online Question Source Sync Logic
+    # -------------------------------------------------------------
+    def load_questions_data():
+        # Try downloading latest questions from GitHub
+        try:
+            req = urllib.request.Request(GITHUB_RAW_URL, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=4) as response:
+                if response.status == 200:
+                    raw_json = response.read().decode("utf-8")
+                    data = json.loads(raw_json)
+                    # Cache locally for offline use
+                    with open(json_path, "w", encoding="utf-8") as f:
+                        f.write(raw_json)
+                    status_text.value = "已成功連線 GitHub 更新至最新題目！"
+                    return data
+        except Exception:
+            pass
+
+        # Offline Fallback
+        if os.path.exists(json_path):
+            with open(json_path, "r", encoding="utf-8") as f:
+                status_text.value = "離線模式：已載入本機預存題目。"
+                return json.load(f)
+        
+        return {"fill_in_blank": [], "punctuation": {"available_marks": [], "questions": []}}
+
+    data = load_questions_data()
+
+    # Helper function to play sound with delay
+    def play_sound_and_wait(audio_obj):
+        try:
+            audio_obj.play()
+        except Exception:
+            pass
+        time.sleep(0.5)
 
     # -------------------------------------------------------------
     # EXERCISE 1: Fill in the Blank (選詞填空)
     # -------------------------------------------------------------
     fib_idx = 0
-    fib_questions = data["fill_in_blank"]
+    fib_questions = data.get("fill_in_blank", [])
     selected_choice = ""
 
     question_text = ft.Text(value="", size=22, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
     options_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=10)
-    fib_feedback = ft.Text(value="", size=18)
+    fib_feedback = ft.Text(value="", size=18, weight=ft.FontWeight.BOLD)
 
     def parse_fib_question(raw_text):
         match = re.search(r'[（\(](.*?)[）\)]', raw_text)
@@ -43,7 +94,7 @@ def main(page: ft.Page):
         options_row.controls.clear()
 
         if fib_idx >= len(fib_questions):
-            question_text.value = "測驗完成！"
+            question_text.value = "測驗完成！太棒了！"
             page.update()
             return
 
@@ -66,45 +117,53 @@ def main(page: ft.Page):
         question_text.value = f"{prefix} [ {choice} ] {suffix}"
         page.update()
 
-    def check_fib_answer(e):
-        if not selected_choice:
-            fib_feedback.value = "請先選擇一個答案！"
-        elif selected_choice == fib_questions[fib_idx]["answer"]:
-            fib_feedback.value = "答對了！非常棒！"
-        else:
-            fib_feedback.value = f"再試一次！正確答案是：{fib_questions[fib_idx]['answer']}"
-        page.update()
-
+    # Feature 1: "下一題" validation and sound playback
     def next_fib_question(e):
         nonlocal fib_idx
-        if fib_idx < len(fib_questions) - 1:
-            fib_idx += 1
-            load_fib_question()
-        else:
-            fib_feedback.value = "已經是最後一題了！"
+        if not selected_choice:
+            fib_feedback.value = "請先選擇一個答案！"
+            fib_feedback.color = ft.Colors.RED_400
             page.update()
+            return
+
+        correct_answer = fib_questions[fib_idx]["answer"]
+        if selected_choice == correct_answer:
+            fib_feedback.value = "答對了！非常棒！"
+            fib_feedback.color = ft.Colors.GREEN_400
+            page.update()
+            play_sound_and_wait(audio_success)
+
+            if fib_idx < len(fib_questions) - 1:
+                fib_idx += 1
+                load_fib_question()
+            else:
+                question_text.value = "選詞填空練習全數完成！"
+                options_row.controls.clear()
+                page.update()
+        else:
+            fib_feedback.value = "答錯了！請再試一次！"
+            fib_feedback.color = ft.Colors.RED_400
+            page.update()
+            play_sound_and_wait(audio_fail)
 
     fib_view = ft.Column([
         question_text,
         options_row,
         fib_feedback,
-        ft.Row([
-            ft.Button(content=ft.Text("檢查答案"), on_click=check_fib_answer),
-            ft.Button(content=ft.Text("下一題"), on_click=next_fib_question)
-        ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+        ft.Button(content=ft.Text("下一題", size=20), on_click=next_fib_question)
     ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
     # -------------------------------------------------------------
     # EXERCISE 2: Punctuation Marks (標點符號)
     # -------------------------------------------------------------
     punc_idx = 0
-    punc_data = data["punctuation"]
+    punc_data = data.get("punctuation", {"available_marks": [], "questions": []})
     active_mark = None
     user_slots = []
 
     palette_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=8)
     sentence_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=5, wrap=True)
-    punc_feedback = ft.Text(value="", size=18)
+    punc_feedback = ft.Text(value="", size=18, weight=ft.FontWeight.BOLD)
 
     def load_punc_question():
         nonlocal active_mark, user_slots
@@ -113,19 +172,20 @@ def main(page: ft.Page):
         palette_row.controls.clear()
         sentence_row.controls.clear()
 
-        if punc_idx >= len(punc_data["questions"]):
+        p_questions = punc_data.get("questions", [])
+        if punc_idx >= len(p_questions):
             punc_feedback.value = "所有標點練習已完成！"
             page.update()
             return
 
-        for mark in punc_data["available_marks"]:
+        for mark in punc_data.get("available_marks", []):
             def make_mark_handler(m):
                 return lambda e: select_mark(m)
             palette_row.controls.append(
                 ft.Button(content=ft.Text(mark, size=18), on_click=make_mark_handler(mark))
             )
 
-        q_text = punc_data["questions"][punc_idx]["text"]
+        q_text = p_questions[punc_idx]["text"]
         segments = re.split(r'[（\(][）\)]', q_text)
         user_slots = [""] * (len(segments) - 1)
 
@@ -143,7 +203,8 @@ def main(page: ft.Page):
     def select_mark(m):
         nonlocal active_mark
         active_mark = m
-        punc_feedback.value = f"已選擇標點：『 {active_mark} 』，請點擊底下的空格填入"
+        punc_feedback.value = f"已選擇：『 {active_mark} 』，點擊空格填入"
+        punc_feedback.color = ft.Colors.BLUE_300
         page.update()
 
     def fill_slot(btn_control, idx):
@@ -151,25 +212,33 @@ def main(page: ft.Page):
             user_slots[idx] = active_mark
             btn_control.content = ft.Text(f"[ {active_mark} ]", size=18)
         else:
-            punc_feedback.value = "請先在上方點擊選擇一個標點符號！"
+            punc_feedback.value = "請先點選上方的標點符號！"
+            punc_feedback.color = ft.Colors.RED_400
         page.update()
 
-    def check_punc_answer(e):
-        expected = punc_data["questions"][punc_idx]["answers"]
-        if user_slots == expected:
-            punc_feedback.value = "全對了！標點符號用得很準確！"
-        else:
-            punc_feedback.value = f"填寫有誤。參考答案：{' '.join(expected)}"
-        page.update()
-
+    # Feature 1: "下一題" validation and sound playback
     def next_punc_question(e):
         nonlocal punc_idx
-        if punc_idx < len(punc_data["questions"]) - 1:
-            punc_idx += 1
-            load_punc_question()
-        else:
-            punc_feedback.value = "已經是最後一題！"
+        p_questions = punc_data.get("questions", [])
+        expected = p_questions[punc_idx]["answers"]
+
+        if user_slots == expected:
+            punc_feedback.value = "全對了！標點符號用得很準確！"
+            punc_feedback.color = ft.Colors.GREEN_400
             page.update()
+            play_sound_and_wait(audio_success)
+
+            if punc_idx < len(p_questions) - 1:
+                punc_idx += 1
+                load_punc_question()
+            else:
+                punc_feedback.value = "標點符號練習全數完成！"
+                page.update()
+        else:
+            punc_feedback.value = "填寫有誤，請再試一次！"
+            punc_feedback.color = ft.Colors.RED_400
+            page.update()
+            play_sound_and_wait(audio_fail)
 
     punc_view = ft.Column([
         ft.Text(value="選擇標點符號：", size=16),
@@ -177,14 +246,11 @@ def main(page: ft.Page):
         ft.Divider(),
         sentence_row,
         punc_feedback,
-        ft.Row([
-            ft.Button(content=ft.Text("檢查標點"), on_click=check_punc_answer),
-            ft.Button(content=ft.Text("下一題"), on_click=next_punc_question)
-        ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+        ft.Button(content=ft.Text("下一題", size=20), on_click=next_punc_question)
     ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
 
     # -------------------------------------------------------------
-    # Navigation Container (Robust View Switcher)
+    # Navigation & View Switcher
     # -------------------------------------------------------------
     view_container = ft.Container(content=fib_view)
 
@@ -197,18 +263,32 @@ def main(page: ft.Page):
         page.update()
 
     nav_row = ft.Row([
-        ft.Button(content=ft.Text("選詞填空練習"), on_click=switch_to_fib),
-        ft.Button(content=ft.Text("標點符號練習"), on_click=switch_to_punc)
+        ft.Button(content=ft.Text("選詞填空"), on_click=switch_to_fib),
+        ft.Button(content=ft.Text("標點符號"), on_click=switch_to_punc)
     ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
 
-    page.add(
-        nav_row,
-        ft.Divider(),
-        view_container
+    # -------------------------------------------------------------
+    # Features 2 & 3: Background Wallpaper & Screen Downward Shift
+    # -------------------------------------------------------------
+    bg_image_path = os.path.join(base_dir, "assets", "bg.jpg")
+
+    main_wrapper = ft.Container(
+        content=ft.Column([
+            status_text,
+            nav_row,
+            ft.Divider(),
+            view_container
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+        # Feature 3: Screen moved down (top padding = 60)
+        padding=ft.padding.only(top=60, left=20, right=20, bottom=20),
+        expand=True,
+        # Feature 2: Background wallpaper
+        image_src=bg_image_path if os.path.exists(bg_image_path) else None,
+        image_fit=ft.ImageFit.COVER
     )
 
+    page.add(main_wrapper)
     load_fib_question()
     load_punc_question()
 
-# Entry point for Flet 1.0
 ft.run(main)
