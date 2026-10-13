@@ -265,9 +265,13 @@ def main(page: ft.Page):
         ], horizontal_alignment="center"),
         padding=ft.Padding(left=20, top=60, right=20, bottom=20),
         expand=True,
-        image_src="assets/bg.jpg" if os.path.exists(bg_image_path) else None,
-        image_fit="cover"
+        # Correct Flet Container background image syntax
+        image=ft.DecorationImage(
+            src="assets/bg.jpg",
+            fit="cover"
+        ) if os.path.exists(bg_image_path) else None
     )
+
 
     page.add(main_wrapper)
     load_fib_question()
