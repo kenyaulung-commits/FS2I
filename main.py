@@ -18,7 +18,7 @@ def main(page: ft.Page):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     json_path = os.path.join(base_dir, "questions.json")
 
-    status_text = ft.Text(value="", size=14, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
+    status_text = ft.Text(value="", size=14, color="white", weight="bold")
 
     # -------------------------------------------------------------
     # Audio Playback Helper for Flet 1.0
@@ -31,7 +31,7 @@ def main(page: ft.Page):
         time.sleep(0.5)
 
     # -------------------------------------------------------------
-    # Feature 4: Online Question Source Sync Logic
+    # Online Question Source Sync Logic
     # -------------------------------------------------------------
     def load_questions_data():
         try:
@@ -63,9 +63,9 @@ def main(page: ft.Page):
     fib_questions = data.get("fill_in_blank", [])
     selected_choice = ""
 
-    question_text = ft.Text(value="", size=22, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
-    options_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=10)
-    fib_feedback = ft.Text(value="", size=18, weight=ft.FontWeight.BOLD)
+    question_text = ft.Text(value="", size=22, weight="bold", text_align="center")
+    options_row = ft.Row(alignment="center", spacing=10)
+    fib_feedback = ft.Text(value="", size=18, weight="bold")
 
     def parse_fib_question(raw_text):
         match = re.search(r'[（\(](.*?)[）\)]', raw_text)
@@ -110,14 +110,14 @@ def main(page: ft.Page):
         nonlocal fib_idx
         if not selected_choice:
             fib_feedback.value = "請先選擇一個答案！"
-            fib_feedback.color = ft.Colors.RED_400
+            fib_feedback.color = "red"
             page.update()
             return
 
         correct_answer = fib_questions[fib_idx]["answer"]
         if selected_choice == correct_answer:
             fib_feedback.value = "答對了！非常棒！"
-            fib_feedback.color = ft.Colors.GREEN_400
+            fib_feedback.color = "green"
             page.update()
             play_sound_and_wait("success.mp3")
 
@@ -130,7 +130,7 @@ def main(page: ft.Page):
                 page.update()
         else:
             fib_feedback.value = "答錯了！請再試一次！"
-            fib_feedback.color = ft.Colors.RED_400
+            fib_feedback.color = "red"
             page.update()
             play_sound_and_wait("fail.mp3")
 
@@ -139,7 +139,7 @@ def main(page: ft.Page):
         options_row,
         fib_feedback,
         ft.Button(content=ft.Text("下一題", size=20), on_click=next_fib_question)
-    ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
+    ], alignment="center", horizontal_alignment="center", spacing=20)
 
     # -------------------------------------------------------------
     # EXERCISE 2: Punctuation Marks (標點符號)
@@ -149,9 +149,9 @@ def main(page: ft.Page):
     active_mark = None
     user_slots = []
 
-    palette_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=8)
-    sentence_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=5, wrap=True)
-    punc_feedback = ft.Text(value="", size=18, weight=ft.FontWeight.BOLD)
+    palette_row = ft.Row(alignment="center", spacing=8)
+    sentence_row = ft.Row(alignment="center", spacing=5, wrap=True)
+    punc_feedback = ft.Text(value="", size=18, weight="bold")
 
     def load_punc_question():
         nonlocal active_mark, user_slots
@@ -192,7 +192,7 @@ def main(page: ft.Page):
         nonlocal active_mark
         active_mark = m
         punc_feedback.value = f"已選擇：『 {active_mark} 』，點擊空格填入"
-        punc_feedback.color = ft.Colors.BLUE_300
+        punc_feedback.color = "blue"
         page.update()
 
     def fill_slot(btn_control, idx):
@@ -201,7 +201,7 @@ def main(page: ft.Page):
             btn_control.content = ft.Text(f"[ {active_mark} ]", size=18)
         else:
             punc_feedback.value = "請先點選上方的標點符號！"
-            punc_feedback.color = ft.Colors.RED_400
+            punc_feedback.color = "red"
         page.update()
 
     def next_punc_question(e):
@@ -211,7 +211,7 @@ def main(page: ft.Page):
 
         if user_slots == expected:
             punc_feedback.value = "全對了！標點符號用得很準確！"
-            punc_feedback.color = ft.Colors.GREEN_400
+            punc_feedback.color = "green"
             page.update()
             play_sound_and_wait("success.mp3")
 
@@ -223,7 +223,7 @@ def main(page: ft.Page):
                 page.update()
         else:
             punc_feedback.value = "填寫有誤，請再試一次！"
-            punc_feedback.color = ft.Colors.RED_400
+            punc_feedback.color = "red"
             page.update()
             play_sound_and_wait("fail.mp3")
 
@@ -234,7 +234,7 @@ def main(page: ft.Page):
         sentence_row,
         punc_feedback,
         ft.Button(content=ft.Text("下一題", size=20), on_click=next_punc_question)
-    ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20)
+    ], alignment="center", horizontal_alignment="center", spacing=20)
 
     # -------------------------------------------------------------
     # Navigation & View Switcher
@@ -252,7 +252,7 @@ def main(page: ft.Page):
     nav_row = ft.Row([
         ft.Button(content=ft.Text("選詞填空"), on_click=switch_to_fib),
         ft.Button(content=ft.Text("標點符號"), on_click=switch_to_punc)
-    ], alignment=ft.MainAxisAlignment.CENTER, spacing=15)
+    ], alignment="center", spacing=15)
 
     bg_image_path = os.path.join(base_dir, "assets", "bg.jpg")
 
@@ -262,17 +262,15 @@ def main(page: ft.Page):
             nav_row,
             ft.Divider(),
             view_container
-        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+        ], horizontal_alignment="center"),
         padding=ft.Padding(left=20, top=60, right=20, bottom=20),
         expand=True,
         image_src="assets/bg.jpg" if os.path.exists(bg_image_path) else None,
-        image_fit=ft.ImageFit.COVER
+        image_fit="cover"
     )
-
 
     page.add(main_wrapper)
     load_fib_question()
     load_punc_question()
 
-# Configure assets_dir so Flet serves files in the assets/ directory
 ft.run(main, assets_dir="assets")
