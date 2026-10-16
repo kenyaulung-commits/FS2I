@@ -1,11 +1,15 @@
 import os
 import json
 import re
+import random
+import threading
+import time
+from datetime import datetime
 import urllib.request
 import flet as ft
 
 # -------------------------------------------------------------
-# GitHub Raw URL for Remote Question Updates
+# GitHub Raw URL for Manual Question Updates
 # -------------------------------------------------------------
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/kenyaulung-commits/FS2I/main/questions.json"
 
@@ -16,41 +20,142 @@ def main(page: ft.Page):
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     json_path = os.path.join(base_dir, "questions.json")
+    history_path = os.path.join(base_dir, "history.json")
 
-    status_text = ft.Text(value="", size=14, color="white", weight="bold")
+    status_text = ft.Text(value="離線模式：已載入本機預存題目。", size=13, color="white", weight="bold")
 
     # -------------------------------------------------------------
-    # Load Questions (Remote GitHub First -> Local Fallback)
+    # 1. PLAY HISTORY MANAGEMENT
     # -------------------------------------------------------------
-    def load_questions_data():
+    def load_history():
+        if os.path.exists(history_path):
+            try:
+                with open(history_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return []
+        return []
+
+    def save_history_entry(quiz_name, score, total):
+        history = load_history()
+        entry = {
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "quiz": quiz_name,
+            "score": f"{score} / {total} ({int((score/total)*100) if total else 0}%)"
+        }
+        history.insert(0, entry)  # Newest first
+        history = history[:30]    # Keep last 30 entries
         try:
-            req = urllib.request.Request(GITHUB_RAW_URL, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=4) as response:
-                if response.status == 200:
-                    raw_json = response.read().decode("utf-8")
-                    data = json.loads(raw_json)
-                    with open(json_path, "w", encoding="utf-8") as f:
-                        f.write(raw_json)
-                    status_text.value = "已成功連線 GitHub 更新至最新題目！"
-                    return data
-        except Exception:
-            pass
+            with open(history_path, "w", encoding="utf-8") as f:
+                json.dump(history, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving history: {e}")
 
+    # -------------------------------------------------------------
+    # 2. LOCAL-FIRST QUESTION DATA LOADING (No Startup Auto-Connect)
+    # -------------------------------------------------------------
+    def load_local_questions():
         if os.path.exists(json_path):
-            with open(json_path, "r", encoding="utf-8") as f:
-                status_text.value = "離線模式：已載入本機預存題目。"
-                return json.load(f)
-        
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Error reading local JSON: {e}")
         return {"fill_in_blank": [], "punctuation": {"available_marks": [], "questions": []}}
 
-    data = load_questions_data()
+    data_store = {"data": load_local_questions()}
 
     # -------------------------------------------------------------
-    # EXERCISE 1: Fill in the Blank (選詞填空)
+    # 3. SETTINGS OVERLAY & GITHUB SYNC
+    # -------------------------------------------------------------
+    history_container = ft.Column(scroll=ft.ScrollMode.AUTO, max_height=220, spacing=8)
+
+    def refresh_history_ui():
+        history_container.controls.clear()
+        records = load_history()
+        if not records:
+            history_container.controls.append(
+                ft.Text("尚無遊玩紀錄", color=ft.Colors.GREY_600, size=14)
+            )
+        else:
+            for item in records:
+                history_container.controls.append(
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Text(f"⏱ {item['time']}", size=12, color=ft.Colors.GREY_700),
+                                ft.Text(f"🎮 {item['quiz']}", size=12, weight="bold", color=ft.Colors.BLUE_800),
+                            ], alignment="spaceBetween"),
+                            ft.Text(f"答對：{item['score']}", size=14, weight="bold", color=ft.Colors.GREEN_700)
+                        ], spacing=3),
+                        padding=8,
+                        bgcolor=ft.Colors.BLUE_50,
+                        border_radius=8
+                    )
+                )
+
+    def manual_github_sync(e):
+        sync_btn.disabled = True
+        sync_status.value = "連線 GitHub 下載中..."
+        sync_status.color = "blue"
+        settings_dialog.update()
+
+        try:
+            req = urllib.request.Request(GITHUB_RAW_URL, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    raw_json = response.read().decode("utf-8")
+                    new_data = json.loads(raw_json)
+                    with open(json_path, "w", encoding="utf-8") as f:
+                        f.write(raw_json)
+                    data_store["data"] = new_data
+                    status_text.value = "已成功連線 GitHub 更新至最新題目！"
+                    sync_status.value = "✅ 題目更新成功！"
+                    sync_status.color = "green"
+                    reset_fib()
+        except Exception as err:
+            sync_status.value = f"❌ 更新失敗：{err}"
+            sync_status.color = "red"
+
+        sync_btn.disabled = False
+        settings_dialog.update()
+        page.update()
+
+    sync_btn = ft.ElevatedButton("連線 GitHub 更新題目", icon=ft.Icons.REFRESH, on_click=manual_github_sync)
+    sync_status = ft.Text(value="", size=12, weight="bold")
+
+    settings_dialog = ft.AlertDialog(
+        title=ft.Row([
+            ft.Icon(ft.Icons.SETTINGS, color=ft.Colors.BLUE_600),
+            ft.Text("設定與遊玩紀錄", weight="bold", size=20)
+        ]),
+        content=ft.Container(
+            content=ft.Column([
+                ft.Text("1. 題目更新", size=16, weight="bold", color=ft.Colors.BLUE_800),
+                sync_btn,
+                sync_status,
+                ft.Divider(),
+                ft.Text("2. 遊玩紀錄 (Time / Quiz / Score)", size=16, weight="bold", color=ft.Colors.BLUE_800),
+                history_container
+            ], spacing=10, tight=True),
+            width=320
+        ),
+        actions=[
+            ft.TextButton("關閉", on_click=lambda e: page.close(settings_dialog))
+        ]
+    )
+
+    def open_settings(e):
+        refresh_history_ui()
+        sync_status.value = ""
+        page.open(settings_dialog)
+
+    # -------------------------------------------------------------
+    # 4. EXERCISE 1: Fill in the Blank (選詞填空) - RANDOMIZED
     # -------------------------------------------------------------
     fib_idx = 0
     fib_score = 0
-    fib_questions = data.get("fill_in_blank", [])
+    fib_questions = []
     selected_choice = ""
 
     question_text = ft.Text(value="", size=22, weight="bold", text_align="center")
@@ -72,7 +177,6 @@ def main(page: ft.Page):
         fib_feedback.value = ""
         options_row.controls.clear()
 
-        # Check for Quiz Completion
         if fib_idx >= len(fib_questions):
             show_fib_results()
             return
@@ -118,18 +222,39 @@ def main(page: ft.Page):
             page.update()
 
     def show_fib_results():
+        save_history_entry("選詞填空", fib_score, len(fib_questions))
         fib_view.controls.clear()
         pct = int((fib_score / len(fib_questions)) * 100) if fib_questions else 0
         
+        # Dedicated Finish Page Layout
         fib_view.controls.extend([
-            ft.Text("🎉 測驗完成！", size=28, weight="bold", color="green"),
-            ft.Text(f"得分：{fib_score} / {len(fib_questions)} ({pct}%)", size=22, weight="bold"),
-            ft.Button(content=ft.Text("重新開始選詞填空", size=18), on_click=lambda e: reset_fib())
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("🎉 恭喜完成測驗！ 🎉", size=26, weight="bold", color=ft.Colors.AMBER_900),
+                    ft.Text("🏆 選詞填空 挑戰成功！", size=20, weight="bold", color=ft.Colors.BLUE_800),
+                    ft.Divider(),
+                    ft.Text(f"最終得分：{fib_score} / {len(fib_questions)}", size=24, weight="bold", color=ft.Colors.GREEN_700),
+                    ft.Text(f"正確率：{pct}%", size=20, weight="bold", color=ft.Colors.BLUE_700),
+                    ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+                    ft.ElevatedButton(
+                        content=ft.Text("再玩一次 (隨機重組)", size=18, weight="bold"),
+                        style=ft.ButtonStyle(padding=15),
+                        on_click=lambda e: reset_fib()
+                    )
+                ], horizontal_alignment="center", spacing=10),
+                padding=20,
+                bgcolor=ft.Colors.WHITE,
+                border_radius=15,
+                shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
+            )
         ])
         page.update()
 
     def reset_fib():
-        nonlocal fib_idx, fib_score
+        nonlocal fib_idx, fib_score, fib_questions
+        raw_list = data_store["data"].get("fill_in_blank", [])
+        # RANDOMIZE QUESTION ORDER
+        fib_questions = random.sample(raw_list, len(raw_list)) if raw_list else []
         fib_idx = 0
         fib_score = 0
         fib_view.controls.clear()
@@ -149,12 +274,11 @@ def main(page: ft.Page):
     ], alignment="center", horizontal_alignment="center", spacing=20)
 
     # -------------------------------------------------------------
-    # EXERCISE 2: Punctuation Marks (標點符號)
+    # 5. EXERCISE 2: Punctuation Marks (標點符號) - RANDOMIZED
     # -------------------------------------------------------------
     punc_idx = 0
     punc_score = 0
-    punc_data = data.get("punctuation", {"available_marks": [], "questions": []})
-    p_questions = punc_data.get("questions", [])
+    p_questions = []
     active_mark = None
     user_slots = []
 
@@ -173,6 +297,7 @@ def main(page: ft.Page):
             show_punc_results()
             return
 
+        punc_data = data_store["data"].get("punctuation", {"available_marks": [], "questions": []})
         for mark in punc_data.get("available_marks", []):
             def make_mark_handler(m):
                 return lambda e: select_mark(m)
@@ -228,18 +353,40 @@ def main(page: ft.Page):
             page.update()
 
     def show_punc_results():
+        save_history_entry("標點符號", punc_score, len(p_questions))
         punc_view.controls.clear()
         pct = int((punc_score / len(p_questions)) * 100) if p_questions else 0
 
+        # Dedicated Finish Page Layout
         punc_view.controls.extend([
-            ft.Text("🎉 標點符號測驗完成！", size=28, weight="bold", color="green"),
-            ft.Text(f"得分：{punc_score} / {len(p_questions)} ({pct}%)", size=22, weight="bold"),
-            ft.Button(content=ft.Text("重新開始標點符號", size=18), on_click=lambda e: reset_punc())
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("🎉 恭喜完成測驗！ 🎉", size=26, weight="bold", color=ft.Colors.AMBER_900),
+                    ft.Text("🏆 標點符號 挑戰成功！", size=20, weight="bold", color=ft.Colors.BLUE_800),
+                    ft.Divider(),
+                    ft.Text(f"最終得分：{punc_score} / {len(p_questions)}", size=24, weight="bold", color=ft.Colors.GREEN_700),
+                    ft.Text(f"正確率：{pct}%", size=20, weight="bold", color=ft.Colors.BLUE_700),
+                    ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+                    ft.ElevatedButton(
+                        content=ft.Text("再玩一次 (隨機重組)", size=18, weight="bold"),
+                        style=ft.ButtonStyle(padding=15),
+                        on_click=lambda e: reset_punc()
+                    )
+                ], horizontal_alignment="center", spacing=10),
+                padding=20,
+                bgcolor=ft.Colors.WHITE,
+                border_radius=15,
+                shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
+            )
         ])
         page.update()
 
     def reset_punc():
-        nonlocal punc_idx, punc_score
+        nonlocal punc_idx, punc_score, p_questions
+        punc_data = data_store["data"].get("punctuation", {"available_marks": [], "questions": []})
+        raw_list = punc_data.get("questions", [])
+        # RANDOMIZE QUESTION ORDER
+        p_questions = random.sample(raw_list, len(raw_list)) if raw_list else []
         punc_idx = 0
         punc_score = 0
         punc_view.controls.clear()
@@ -263,7 +410,7 @@ def main(page: ft.Page):
     ], alignment="center", horizontal_alignment="center", spacing=20)
 
     # -------------------------------------------------------------
-    # Navigation & View Switcher (Resets Quiz on Click)
+    # 6. NAVIGATION & TOP BAR WITH SETTINGS ICON
     # -------------------------------------------------------------
     view_container = ft.Container(content=fib_view)
 
@@ -277,21 +424,66 @@ def main(page: ft.Page):
         view_container.content = punc_view
         page.update()
 
+    top_header = ft.Row([
+        ft.IconButton(
+            icon=ft.Icons.SETTINGS,
+            icon_color=ft.Colors.WHITE,
+            tooltip="設定與紀錄",
+            on_click=open_settings
+        ),
+        status_text
+    ], alignment="spaceBetween")
+
     nav_row = ft.Row([
         ft.Button(content=ft.Text("選詞填空"), on_click=switch_to_fib),
         ft.Button(content=ft.Text("標點符號"), on_click=switch_to_punc)
     ], alignment="center", spacing=15)
 
+    # -------------------------------------------------------------
+    # 7. BOTTOM ANIMATION: MARIO & YOSHI WANDERING
+    # -------------------------------------------------------------
+    mario_yoshi_sprite = ft.Row([
+        ft.Text("🔴 🏃‍♂️ Mario", size=16, weight="bold", color=ft.Colors.RED_700),
+        ft.Text("🟢 🦖 Yoshi", size=16, weight="bold", color=ft.Colors.GREEN_700),
+    ], spacing=15)
+
+    wander_container = ft.Container(
+        content=mario_yoshi_sprite,
+        offset=ft.Offset(0, 0),
+        animate_offset=ft.Animation(3000, ft.AnimationCurve.EASE_IN_OUT),
+        padding=ft.padding.only(top=10, bottom=10)
+    )
+
+    def start_wandering_loop():
+        def loop():
+            pos = 0
+            while True:
+                time.sleep(3.2)
+                try:
+                    pos = 0.8 if pos == 0 else 0
+                    wander_container.offset = ft.Offset(pos, 0)
+                    page.update()
+                except Exception:
+                    break
+
+        thread = threading.Thread(target=loop, daemon=True)
+        thread.start()
+
+    # -------------------------------------------------------------
+    # MAIN WRAPPER ASSEMBLY
+    # -------------------------------------------------------------
     bg_image_path = os.path.join(base_dir, "assets", "bg.jpg")
 
     main_wrapper = ft.Container(
         content=ft.Column([
-            status_text,
+            top_header,
             nav_row,
             ft.Divider(),
-            view_container
-        ], horizontal_alignment="center"),
-        padding=ft.Padding(left=20, top=60, right=20, bottom=20),
+            view_container,
+            ft.Divider(),
+            wander_container
+        ], horizontal_alignment="center", alignment="spaceBetween"),
+        padding=ft.Padding(left=15, top=40, right=15, bottom=10),
         expand=True,
         image=ft.DecorationImage(
             src="bg.jpg",
@@ -301,8 +493,6 @@ def main(page: ft.Page):
 
     page.add(main_wrapper)
     reset_fib()
+    start_wandering_loop()
 
-# ft.app(target=main, assets_dir="assets")
-# ✅ Correct syntax for Flet 1.0+
 ft.run(main, assets_dir="assets")
-
