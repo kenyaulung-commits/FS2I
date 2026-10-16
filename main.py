@@ -3,7 +3,6 @@ import json
 import re
 import urllib.request
 import flet as ft
-import flet_audio as fta
 
 # -------------------------------------------------------------
 # GitHub Raw URL for Remote Question Updates
@@ -19,20 +18,6 @@ def main(page: ft.Page):
     json_path = os.path.join(base_dir, "questions.json")
 
     status_text = ft.Text(value="", size=14, color="white", weight="bold")
-
-    # -------------------------------------------------------------
-    # Audio Setup with flet_audio
-    # -------------------------------------------------------------
-    audio_success = fta.Audio(src="success.mp3", autoplay=False)
-    audio_fail = fta.Audio(src="fail.mp3", autoplay=False)
-    audio_finish = fta.Audio(src="finish.mp3", autoplay=False)
-    page.overlay.extend([audio_success, audio_fail, audio_finish])
-
-    def play_sound(audio_control):
-        try:
-            page.run_task(audio_control.play)
-        except Exception as e:
-            print(f"Audio error: {e}")
 
     # -------------------------------------------------------------
     # Load Questions (Remote GitHub First -> Local Fallback)
@@ -124,15 +109,12 @@ def main(page: ft.Page):
             fib_score += 1
             fib_idx += 1
             if fib_idx < len(fib_questions):
-                play_sound(audio_success)
                 load_fib_question()
             else:
-                play_sound(audio_finish)
                 show_fib_results()
         else:
             fib_feedback.value = "答錯了！請再試一次！"
             fib_feedback.color = "red"
-            play_sound(audio_fail)
             page.update()
 
     def show_fib_results():
@@ -237,15 +219,12 @@ def main(page: ft.Page):
             punc_score += 1
             punc_idx += 1
             if punc_idx < len(p_questions):
-                play_sound(audio_success)
                 load_punc_question()
             else:
-                play_sound(audio_finish)
                 show_punc_results()
         else:
             punc_feedback.value = "填寫有誤，請再試一次！"
             punc_feedback.color = "red"
-            play_sound(audio_fail)
             page.update()
 
     def show_punc_results():
@@ -323,4 +302,4 @@ def main(page: ft.Page):
     page.add(main_wrapper)
     reset_fib()
 
-ft.run(main, assets_dir="assets")
+ft.app(target=main, assets_dir="assets")
