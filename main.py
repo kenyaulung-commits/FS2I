@@ -448,7 +448,7 @@ def main(page: ft.Page):
         content=mario_yoshi_sprite,
         offset=ft.Offset(0, 0),
         animate_offset=ft.Animation(3000, ft.AnimationCurve.EASE_IN_OUT),
-        padding=ft.padding.only(top=10, bottom=10)
+        padding=ft.Padding(top=10, bottom=10)
     )
 
     def start_wandering_loop():
