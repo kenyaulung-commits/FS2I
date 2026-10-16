@@ -68,18 +68,20 @@ def main(page: ft.Page):
     # -------------------------------------------------------------
     # 3. SETTINGS OVERLAY & GITHUB SYNC
     # -------------------------------------------------------------
-    history_container = ft.Column(scroll=ft.ScrollMode.AUTO, max_height=220, spacing=8)
+
+    history_list = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=8)
+    history_container = ft.Container(content=history_list, height=220)
 
     def refresh_history_ui():
-        history_container.controls.clear()
+        history_list.controls.clear()
         records = load_history()
         if not records:
-            history_container.controls.append(
+            history_list.controls.append(
                 ft.Text("尚無遊玩紀錄", color=ft.Colors.GREY_600, size=14)
             )
         else:
             for item in records:
-                history_container.controls.append(
+                history_list.controls.append(
                     ft.Container(
                         content=ft.Column([
                             ft.Row([
@@ -93,6 +95,7 @@ def main(page: ft.Page):
                         border_radius=8
                     )
                 )
+
 
     def manual_github_sync(e):
         sync_btn.disabled = True
