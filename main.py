@@ -27,6 +27,9 @@ def main(page: ft.Page):
     # -------------------------------------------------------------
     # 1. PLAY HISTORY MANAGEMENT
     # -------------------------------------------------------------
+    history_list = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=8)
+    history_container = ft.Container(content=history_list, height=220)
+
     def load_history():
         if os.path.exists(history_path):
             try:
@@ -50,27 +53,6 @@ def main(page: ft.Page):
                 json.dump(history, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Error saving history: {e}")
-
-    # -------------------------------------------------------------
-    # 2. LOCAL-FIRST QUESTION DATA LOADING (No Startup Auto-Connect)
-    # -------------------------------------------------------------
-    def load_local_questions():
-        if os.path.exists(json_path):
-            try:
-                with open(json_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"Error reading local JSON: {e}")
-        return {"fill_in_blank": [], "punctuation": {"available_marks": [], "questions": []}}
-
-    data_store = {"data": load_local_questions()}
-
-    # -------------------------------------------------------------
-    # 3. SETTINGS OVERLAY & GITHUB SYNC
-    # -------------------------------------------------------------
-
-    history_list = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=8)
-    history_container = ft.Container(content=history_list, height=220)
 
     def refresh_history_ui():
         history_list.controls.clear()
@@ -96,7 +78,23 @@ def main(page: ft.Page):
                     )
                 )
 
+    # -------------------------------------------------------------
+    # 2. LOCAL-FIRST QUESTION DATA LOADING
+    # -------------------------------------------------------------
+    def load_local_questions():
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"Error reading local JSON: {e}")
+        return {"fill_in_blank": [], "punctuation": {"available_marks": [], "questions": []}}
 
+    data_store = {"data": load_local_questions()}
+
+    # -------------------------------------------------------------
+    # 3. SETTINGS OVERLAY & GITHUB SYNC
+    # -------------------------------------------------------------
     def manual_github_sync(e):
         sync_btn.disabled = True
         sync_status.value = "連線 GitHub 下載中..."
@@ -124,7 +122,7 @@ def main(page: ft.Page):
         settings_dialog.update()
         page.update()
 
-    sync_btn = ft.ElevatedButton("連線 GitHub 更新題目", icon=ft.Icons.REFRESH, on_click=manual_github_sync)
+    sync_btn = ft.Button(content=ft.Text("連線 GitHub 更新題目"), icon=ft.Icons.REFRESH, on_click=manual_github_sync)
     sync_status = ft.Text(value="", size=12, weight="bold")
 
     settings_dialog = ft.AlertDialog(
@@ -229,7 +227,6 @@ def main(page: ft.Page):
         fib_view.controls.clear()
         pct = int((fib_score / len(fib_questions)) * 100) if fib_questions else 0
         
-        # Dedicated Finish Page Layout
         fib_view.controls.extend([
             ft.Container(
                 content=ft.Column([
@@ -239,7 +236,7 @@ def main(page: ft.Page):
                     ft.Text(f"最終得分：{fib_score} / {len(fib_questions)}", size=24, weight="bold", color=ft.Colors.GREEN_700),
                     ft.Text(f"正確率：{pct}%", size=20, weight="bold", color=ft.Colors.BLUE_700),
                     ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-                    ft.ElevatedButton(
+                    ft.Button(
                         content=ft.Text("再玩一次 (隨機重組)", size=18, weight="bold"),
                         style=ft.ButtonStyle(padding=15),
                         on_click=lambda e: reset_fib()
@@ -256,7 +253,6 @@ def main(page: ft.Page):
     def reset_fib():
         nonlocal fib_idx, fib_score, fib_questions
         raw_list = data_store["data"].get("fill_in_blank", [])
-        # RANDOMIZE QUESTION ORDER
         fib_questions = random.sample(raw_list, len(raw_list)) if raw_list else []
         fib_idx = 0
         fib_score = 0
@@ -360,7 +356,6 @@ def main(page: ft.Page):
         punc_view.controls.clear()
         pct = int((punc_score / len(p_questions)) * 100) if p_questions else 0
 
-        # Dedicated Finish Page Layout
         punc_view.controls.extend([
             ft.Container(
                 content=ft.Column([
@@ -370,7 +365,7 @@ def main(page: ft.Page):
                     ft.Text(f"最終得分：{punc_score} / {len(p_questions)}", size=24, weight="bold", color=ft.Colors.GREEN_700),
                     ft.Text(f"正確率：{pct}%", size=20, weight="bold", color=ft.Colors.BLUE_700),
                     ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-                    ft.ElevatedButton(
+                    ft.Button(
                         content=ft.Text("再玩一次 (隨機重組)", size=18, weight="bold"),
                         style=ft.ButtonStyle(padding=15),
                         on_click=lambda e: reset_punc()
@@ -388,7 +383,6 @@ def main(page: ft.Page):
         nonlocal punc_idx, punc_score, p_questions
         punc_data = data_store["data"].get("punctuation", {"available_marks": [], "questions": []})
         raw_list = punc_data.get("questions", [])
-        # RANDOMIZE QUESTION ORDER
         p_questions = random.sample(raw_list, len(raw_list)) if raw_list else []
         punc_idx = 0
         punc_score = 0
