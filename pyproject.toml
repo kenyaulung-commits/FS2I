@@ -3,9 +3,9 @@ name = "fs2i-chinese"
 version = "1.0.0"
 description = "FS2I Chinese Learning App"
 dependencies = [
-  "flet",
-  "flet-audio"
-  ]
+  "flet>=1.0.0",
+  "flet-audio>=1.0.0"
+]
 
 [tool.flet]
 product = "FS2I Chinese"
