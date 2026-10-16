@@ -22,8 +22,6 @@ def main(page: ft.Page):
     json_path = os.path.join(base_dir, "questions.json")
     history_path = os.path.join(base_dir, "history.json")
 
-    status_text = ft.Text(value="離線模式：已載入本機預存題目。", size=13, color="white", weight="bold")
-
     # -------------------------------------------------------------
     # 1. PLAY HISTORY MANAGEMENT
     # -------------------------------------------------------------
@@ -110,8 +108,7 @@ def main(page: ft.Page):
                     with open(json_path, "w", encoding="utf-8") as f:
                         f.write(raw_json)
                     data_store["data"] = new_data
-                    status_text.value = "已成功連線 GitHub 更新至最新題目！"
-                    sync_status.value = "✅ 題目更新成功！"
+                    sync_status.value = "Already updated from server"
                     sync_status.color = "green"
                     reset_fib()
         except Exception as err:
@@ -124,6 +121,10 @@ def main(page: ft.Page):
 
     sync_btn = ft.Button(content=ft.Text("連線 GitHub 更新題目"), icon=ft.Icons.REFRESH, on_click=manual_github_sync)
     sync_status = ft.Text(value="", size=12, weight="bold")
+
+    def close_settings(e):
+        settings_dialog.open = False
+        page.update()
 
     settings_dialog = ft.AlertDialog(
         title=ft.Row([
@@ -142,14 +143,16 @@ def main(page: ft.Page):
             width=320
         ),
         actions=[
-            ft.TextButton("關閉", on_click=lambda e: page.close(settings_dialog))
+            ft.TextButton("關閉", on_click=close_settings)
         ]
     )
 
     def open_settings(e):
         refresh_history_ui()
         sync_status.value = ""
-        page.open(settings_dialog)
+        page.dialog = settings_dialog
+        settings_dialog.open = True
+        page.update()
 
     # -------------------------------------------------------------
     # 4. EXERCISE 1: Fill in the Blank (選詞填空) - RANDOMIZED
@@ -407,7 +410,7 @@ def main(page: ft.Page):
     ], alignment="center", horizontal_alignment="center", spacing=20)
 
     # -------------------------------------------------------------
-    # 6. NAVIGATION & TOP BAR WITH SETTINGS ICON
+    # 6. NAVIGATION & TOP BAR WITH SETTINGS ICON (HIGHER POSITION)
     # -------------------------------------------------------------
     view_container = ft.Container(content=fib_view)
 
@@ -427,9 +430,8 @@ def main(page: ft.Page):
             icon_color=ft.Colors.WHITE,
             tooltip="設定與紀錄",
             on_click=open_settings
-        ),
-        status_text
-    ], alignment="spaceBetween")
+        )
+    ], alignment="start")
 
     nav_row = ft.Row([
         ft.Button(content=ft.Text("選詞填空"), on_click=switch_to_fib),
@@ -480,7 +482,7 @@ def main(page: ft.Page):
             ft.Divider(),
             wander_container
         ], horizontal_alignment="center", alignment="spaceBetween"),
-        padding=ft.Padding(left=15, top=40, right=15, bottom=10),
+        padding=ft.Padding(left=15, top=15, right=15, bottom=10),
         expand=True,
         image=ft.DecorationImage(
             src="bg.jpg",
