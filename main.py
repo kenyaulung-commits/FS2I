@@ -302,4 +302,7 @@ def main(page: ft.Page):
     page.add(main_wrapper)
     reset_fib()
 
-ft.app(target=main, assets_dir="assets")
+# ft.app(target=main, assets_dir="assets")
+# ✅ Correct syntax for Flet 1.0+
+ft.run(main, assets_dir="assets")
+
